@@ -1,0 +1,129 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: /users/{userId}
+    // Document ID: userId (Firebase Auth UID)
+    // Fields:
+    //   - uid: string (required) - User's unique ID
+    //   - email: string (required, format: email) - User's email
+    //   - displayName: string (optional) - User's name
+    //   - photoURL: string (optional) - User's photo URL
+    //   - role: string (required, enum: ["user", "admin"]) - User's role
+    //   - createdAt: timestamp (required) - When the profile was created
+    //
+    // Collection: /users/{userId}/destinations/{destId}
+    // Document ID: destId (Generated)
+    // Fields:
+    //   - id: string (required) - Destination ID
+    //   - userId: string (required) - Owner's UID
+    //   - name: string (required) - Destination name
+    //   - country: string (required) - Destination country
+    //   - description: string (optional) - Destination description
+    //   - imageUrl: string (optional) - Destination image URL
+    //   - highlights: list (optional) - List of strings
+    //   - vibe: string (optional) - Destination vibe
+    //   - savedAt: timestamp (required) - When the destination was saved
+    //
+    // Collection: /users/{userId}/itineraries/{itineraryId}
+    // Document ID: itineraryId (Generated)
+    // Fields:
+    //   - id: string (required) - Itinerary ID
+    //   - userId: string (required) - Owner's UID
+    //   - destinationId: string (required) - Destination ID
+    //   - title: string (required) - Itinerary title
+    //   - days: list (required) - List of day objects
+    //   - savedAt: timestamp (required) - When the itinerary was saved
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+          (request.auth.token.email == "kganiruddha5@gmail.com" && request.auth.token.email_verified == true));
+    }
+
+    function isValidEmail(email) {
+      return email is string && email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
+    }
+
+    function isValidUrl(url) {
+      return url is string && (url.matches("^https://.*") || url.matches("^http://.*"));
+    }
+
+    // ===============================================================
+    // Domain Validators
+    // ===============================================================
+
+    function isValidUser(data) {
+      return data.keys().hasAll(['uid', 'email', 'role', 'createdAt']) &&
+             data.keys().hasOnly(['uid', 'email', 'displayName', 'photoURL', 'role', 'createdAt']) &&
+             data.uid == request.auth.uid &&
+             isValidEmail(data.email) &&
+             data.role in ['user', 'admin'] &&
+             data.createdAt is timestamp;
+    }
+
+    function isValidDestination(data) {
+      return data.keys().hasAll(['id', 'userId', 'name', 'country', 'savedAt']) &&
+             data.keys().hasOnly(['id', 'userId', 'name', 'country', 'description', 'imageUrl', 'highlights', 'vibe', 'savedAt']) &&
+             data.userId == request.auth.uid &&
+             data.name is string && data.name.size() < 100 &&
+             data.country is string && data.country.size() < 100 &&
+             data.savedAt is timestamp;
+    }
+
+    function isValidItinerary(data) {
+      return data.keys().hasAll(['id', 'userId', 'destinationId', 'title', 'days', 'savedAt']) &&
+             data.keys().hasOnly(['id', 'userId', 'destinationId', 'title', 'days', 'savedAt']) &&
+             data.userId == request.auth.uid &&
+             data.title is string && data.title.size() < 200 &&
+             data.days is list && data.days.size() < 10 &&
+             data.savedAt is timestamp;
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /users/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow create: if isOwner(userId) && isValidUser(request.resource.data) && (request.resource.data.role == 'user' || isAdmin());
+      allow update: if isOwner(userId) && isValidUser(request.resource.data) && (request.resource.data.role == resource.data.role || isAdmin());
+
+      match /destinations/{destId} {
+        allow read: if isOwner(userId) || isAdmin();
+        allow create: if isOwner(userId) && isValidDestination(request.resource.data);
+        allow update: if isOwner(userId) && isValidDestination(request.resource.data);
+        allow delete: if isOwner(userId) || isAdmin();
+      }
+
+      match /itineraries/{itineraryId} {
+        allow read: if isOwner(userId) || isAdmin();
+        allow create: if isOwner(userId) && isValidItinerary(request.resource.data);
+        allow update: if isOwner(userId) && isValidItinerary(request.resource.data);
+        allow delete: if isOwner(userId) || isAdmin();
+      }
+    }
+
+    match /{path=**} {
+      allow read, write: if false;
+    }
+  }
+}

@@ -1,0 +1,63 @@
+{
+  "entities": {
+    "User": {
+      "title": "User Profile",
+      "description": "Information about the authenticated user.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "displayName": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "role": { "type": "string", "enum": ["user", "admin"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email", "role", "createdAt"]
+    },
+    "SavedDestination": {
+      "title": "Saved Destination",
+      "description": "A travel destination saved by a user.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "name": { "type": "string" },
+        "country": { "type": "string" },
+        "description": { "type": "string" },
+        "imageUrl": { "type": "string" },
+        "highlights": { "type": "array", "items": { "type": "string" } },
+        "vibe": { "type": "string" },
+        "savedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "userId", "name", "country", "savedAt"]
+    },
+    "SavedItinerary": {
+      "title": "Saved Itinerary",
+      "description": "A generated itinerary saved by a user.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "destinationId": { "type": "string" },
+        "title": { "type": "string" },
+        "days": { "type": "array" },
+        "savedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "userId", "destinationId", "title", "days", "savedAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profile documents."
+    },
+    "/users/{userId}/destinations/{destId}": {
+      "schema": "SavedDestination",
+      "description": "Destinations saved by a specific user."
+    },
+    "/users/{userId}/itineraries/{itineraryId}": {
+      "schema": "SavedItinerary",
+      "description": "Itineraries saved by a specific user."
+    }
+  }
+}

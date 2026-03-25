@@ -1,0 +1,5 @@
+{
+  "name": "Voyager",
+  "description": "A premium editorial travel curator and itinerary planner powered by Gemini AI.",
+  "requestFramePermissions": ["camera", "microphone", "geolocation"]
+}
